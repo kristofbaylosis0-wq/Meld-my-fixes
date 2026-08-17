@@ -25,7 +25,7 @@ replace_once(
 replace_once(
     search_vm,
     r"import kotlinx\.coroutines\.Dispatchers\n",
-    "import kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.Job\nimport kotlinx.coroutines.async\nimport kotlinx.coroutines.awaitAll\n",
+    "import kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.Job\nimport kotlinx.coroutines.async\nimport kotlinx.coroutines.awaitAll\nimport kotlinx.coroutines.coroutineScope\n",
 )
 replace_once(
     search_vm,
