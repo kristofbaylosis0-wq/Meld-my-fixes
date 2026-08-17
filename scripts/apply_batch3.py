@@ -291,7 +291,7 @@ replace_once(
 )
 replace_once(
     service,
-    r"private val songUrlCache = HashMap<String, Pair<String, Long>\(\)>",
+    r"private val songUrlCache = .*",
     "private val songUrlCache = ConcurrentHashMap<String, Pair<String, Long>>()",
 )
 replace_once(
