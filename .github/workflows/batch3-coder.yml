@@ -23,6 +23,9 @@ jobs:
       - name: Apply Batch 3 fixes
         run: python3 scripts/apply_batch3.py
 
+      - name: Apply Batch 3 hardening
+        run: python3 scripts/harden_batch3.py
+
       - name: Format changed Kotlin
         run: |
           set -euxo pipefail
@@ -43,7 +46,7 @@ jobs:
       - name: Review and squash into one final Batch 3 commit
         run: |
           set -euxo pipefail
-          git rm -f scripts/apply_batch3.py .github/workflows/batch3-coder.yml
+          git rm -f scripts/apply_batch3.py scripts/harden_batch3.py .github/workflows/batch3-coder.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git reset --soft origin/main
