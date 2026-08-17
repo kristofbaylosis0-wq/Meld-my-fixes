@@ -1,0 +1,32 @@
+name: Batch 2 coder
+on:
+  push:
+    branches: [batch-2-fixes]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Inventory relevant implementation
+        run: |
+          set -euxo pipefail
+          echo '--- Spotify queues ---'
+          find app/src -type f -name '*Spotify*Queue*.kt' -print
+          echo '--- crossfade ---'
+          git grep -n -i -E 'crossfade|cross-fade' -- '*.kt' || true
+          echo '--- Spotify mapping ---'
+          git grep -n -E 'SpotifyMatch|spotify.*youtube|youtube.*spotify' -- '*.kt' | head -300 || true
+          echo '--- duplicate liked logic ---'
+          git grep -n -i -E 'duplicate|distinctBy|distinct|hide.*duplicate' -- '*.kt' | head -300 || true
+          echo '--- Cast ---'
+          git grep -n -E 'CastPlayer|SessionAvailabilityListener|CastContext|RemoteMediaClient' -- '*.kt' | head -300 || true
+          echo '--- tests ---'
+          find app/src/test -type f -name '*.kt' | sort | head -200 || true
