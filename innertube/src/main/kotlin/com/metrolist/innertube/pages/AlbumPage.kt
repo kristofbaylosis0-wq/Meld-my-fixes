@@ -12,6 +12,7 @@ import com.metrolist.innertube.models.response.BrowseResponse
 import com.metrolist.innertube.models.splitBySeparator
 import com.metrolist.innertube.utils.parseTime
 
+
 data class AlbumPage(
     val album: AlbumItem,
     val songs: List<SongItem>,
@@ -20,8 +21,7 @@ data class AlbumPage(
     companion object {
         fun getPlaylistId(response: BrowseResponse): String? {
             var playlistId = response.microformat?.microformatDataRenderer?.urlCanonical?.substringAfterLast('=')
-            if (playlistId == null)
-            {
+            if (playlistId == null) {
                 playlistId = response.header?.musicDetailHeaderRenderer?.menu?.menuRenderer?.topLevelButtons?.firstOrNull()
                     ?.buttonRenderer?.navigationEndpoint?.watchPlaylistEndpoint?.playlistId
             }
@@ -39,8 +39,8 @@ data class AlbumPage(
         }
 
         fun getThumbnail(response: BrowseResponse): String? {
-            return response.background?.musicThumbnailRenderer?.getThumbnailUrl() ?: response.header?.musicDetailHeaderRenderer?.thumbnail
-                ?.croppedSquareThumbnailRenderer?.getThumbnailUrl()
+            return response.background?.musicThumbnailRenderer?.getThumbnailUrl()
+                ?: response.header?.musicDetailHeaderRenderer?.thumbnail?.croppedSquareThumbnailRenderer?.getThumbnailUrl()
         }
 
         fun getArtists(response: BrowseResponse): List<Artist> {
@@ -69,9 +69,10 @@ data class AlbumPage(
         }
 
         fun getSongs(response: BrowseResponse, album: AlbumItem): List<SongItem> {
-            val tabs = response.contents?.singleColumnBrowseResultsRenderer?.tabs ?: response.contents?.twoColumnBrowseResultsRenderer?.tabs
-            val shelfRenderer = tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicShelfRenderer ?:
-                response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicShelfRenderer
+            val tabs = response.contents?.singleColumnBrowseResultsRenderer?.tabs
+                ?: response.contents?.twoColumnBrowseResultsRenderer?.tabs
+            val shelfRenderer = tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicShelfRenderer
+                ?: response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicShelfRenderer
 
             val songs = shelfRenderer?.contents?.getItems()?.mapNotNull {
                 getSong(it, album)
@@ -83,34 +84,45 @@ data class AlbumPage(
             // Extract library tokens using the new method that properly handles multiple toggle items
             val libraryTokens = PageHelper.extractLibraryTokensFromMenuItems(renderer.menu?.menuRenderer?.items)
 
+            val id = renderer.playlistItemData?.videoId ?: return null
+            val title = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_VIDEO").firstOrNull()?.text ?: return null
+
+            val artists = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_PAGE_TYPE_ARTIST").map {
+                Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
+            }.ifEmpty {
+                // Fallback to album artists if no artists found in song data
+                album?.artists ?: emptyList()
+            }
+
+            // Resolve album defensively
+            val resolvedAlbum: Album? = album?.let { Album(it.title, it.browseId) } ?: run {
+                val colRun = renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()
+                val albumId = colRun?.navigationEndpoint?.browseEndpoint?.browseId
+                val albumName = colRun?.text
+                if (!albumId.isNullOrBlank() && !albumName.isNullOrBlank()) {
+                    Album(name = albumName, id = albumId)
+                } else null
+            }
+
+            // If album is required for constructing SongItem, return null when missing
+            if (resolvedAlbum == null) return null
+
+            val duration = renderer.fixedColumns?.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text?.parseTime()
+                ?: return null
+
+            val thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: resolvedAlbum.thumbnail ?: ""
+
+            val explicit = renderer.badges?.find { it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE" } != null
+
             return SongItem(
-                id = renderer.playlistItemData?.videoId ?: return null,
-                title = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_VIDEO").firstOrNull()?.text ?: return null,
-                artists = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_PAGE_TYPE_ARTIST").map{
-                    Artist(
-                        name = it.text,
-                        id = it.navigationEndpoint?.browseEndpoint?.browseId
-                    )
-                }.ifEmpty {
-                    // Fallback to album artists if no artists found in song data
-                    album?.artists ?: emptyList()
-                },
-                album = album?.let {
-                    Album(it.title, it.browseId)
-                } ?: renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let {
-                    Album(
-                        name = it.text,
-                        id = it.navigationEndpoint?.browseEndpoint?.browseId!!
-                    )
-                }!!,
-                duration = renderer.fixedColumns?.firstOrNull()
-                    ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()
-                    ?.text?.parseTime() ?: return null,
+                id = id,
+                title = title,
+                artists = artists,
+                album = resolvedAlbum,
+                duration = duration,
                 musicVideoType = renderer.musicVideoType,
-                thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: album?.thumbnail!!,
-                explicit = renderer.badges?.find {
-                    it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-                } != null,
+                thumbnail = thumbnail,
+                explicit = explicit,
                 libraryAddToken = libraryTokens.addToken,
                 libraryRemoveToken = libraryTokens.removeToken
             )
