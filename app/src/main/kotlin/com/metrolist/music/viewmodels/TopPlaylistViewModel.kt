@@ -36,6 +36,7 @@ constructor(
     // `top` may be absent in some navigation/test cases; parse defensively and provide a sensible default
     private val topRaw: String? = savedStateHandle.get<String>("top")
     private val topCount: Int = topRaw?.toIntOrNull() ?: 6
+    val top: String = topCount.toString()
 
     val topPeriod = MutableStateFlow(MyTopFilter.ALL_TIME)
 
